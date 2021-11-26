@@ -766,7 +766,8 @@ int HttpClient::read(uint8_t* buf, size_t size)
 int HttpClient::readHeader()
 {
   char c = read();
-  if (endOfHeadersReached())
+
+  if (endOfHeadersReached() || (c == 0xFF))
   {
     // We've passed the headers, but rather than return an error, we'll just
     // act as a slightly less efficient version of read()

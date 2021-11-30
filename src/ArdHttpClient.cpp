@@ -594,6 +594,40 @@ String HttpClient::responseBody()
   return response;
 }
 
+
+int HttpClient::responseBody(Stream& stream)
+{
+  long bodyLength = contentLength();
+  int writtenLength = 0;
+
+  // keep on timedRead'ing, until:
+  //  - we have a content length: body length equals consumed or no bytes
+  //                              available
+  //  - no content length:        no bytes are available
+  while (iBodyLengthConsumed != bodyLength)
+  {
+    int c = timedRead();
+
+    if (c == -1) {
+      // read timed out, done
+      break;
+    }
+
+    if (!stream.write((char)c)) {
+      // adding char failed
+      return 0;
+    }
+    writtenLength++;
+  }
+
+  if (bodyLength > 0 && (unsigned long)bodyLength != writtenLength) {
+    // failure, we did not read in response content length bytes
+    return 0;
+  }
+
+  return writtenLength;
+}
+
 bool HttpClient::endOfBodyReached()
 {
   if (endOfHeadersReached() && (contentLength() != kNoContentLengthHeader))

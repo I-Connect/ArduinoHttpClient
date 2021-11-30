@@ -9,19 +9,19 @@
 #include <IPAddress.h>
 #include "Client.h"
 
-static const int HTTP_SUCCESS =0;
+static const int HTTP_SUCCESS = 0;
 // The end of the headers has been reached.  This consumes the '\n'
 // Could not connect to the server
-static const int HTTP_ERROR_CONNECTION_FAILED =-1;
+static const int HTTP_ERROR_CONNECTION_FAILED = -1;
 // This call was made when the HttpClient class wasn't expecting it
 // to be called.  Usually indicates your code is using the class
 // incorrectly
-static const int HTTP_ERROR_API =-2;
+static const int HTTP_ERROR_API = -2;
 // Spent too long waiting for a reply
-static const int HTTP_ERROR_TIMED_OUT =-3;
+static const int HTTP_ERROR_TIMED_OUT = -3;
 // The response from the server is invalid, is it definitely an HTTP
 // server?
-static const int HTTP_ERROR_INVALID_RESPONSE =-4;
+static const int HTTP_ERROR_INVALID_RESPONSE = -4;
 
 // Define some of the common methods and headers here
 // That lets other code reuse them without having to declare another copy
@@ -40,9 +40,9 @@ static const int HTTP_ERROR_INVALID_RESPONSE =-4;
 
 class HttpClient : public Client
 {
-public:
-    static const int kNoContentLengthHeader =-1;
-    static const int kHttpPort =80;
+  public:
+    static const int kNoContentLengthHeader = -1;
+    static const int kHttpPort = 80;
     static const char* kUserAgent;
 
 // FIXME Write longer API request, using port and user-agent, example
@@ -173,7 +173,9 @@ public:
     void sendHeader(const char* aHeader);
 
     void sendHeader(const String& aHeader)
-      { sendHeader(aHeader.c_str()); }
+    {
+      sendHeader(aHeader.c_str());
+    }
 
     /** Send an additional header line.  This is an alternate form of
       sendHeader() which takes the header name and content as separate strings.
@@ -185,7 +187,9 @@ public:
     void sendHeader(const char* aHeaderName, const char* aHeaderValue);
 
     void sendHeader(const String& aHeaderName, const String& aHeaderValue)
-      { sendHeader(aHeaderName.c_str(), aHeaderValue.c_str()); }
+    {
+      sendHeader(aHeaderName.c_str(), aHeaderValue.c_str());
+    }
 
     /** Send an additional header line.  This is an alternate form of
       sendHeader() which takes the header name and content separately but where
@@ -198,7 +202,9 @@ public:
     void sendHeader(const char* aHeaderName, const int aHeaderValue);
 
     void sendHeader(const String& aHeaderName, const int aHeaderValue)
-      { sendHeader(aHeaderName.c_str(), aHeaderValue); }
+    {
+      sendHeader(aHeaderName.c_str(), aHeaderValue);
+    }
 
     /** Send a basic authentication header.  This will encode the given username
       and password, and send them in suitable header line for doing Basic
@@ -209,7 +215,9 @@ public:
     void sendBasicAuth(const char* aUser, const char* aPassword);
 
     void sendBasicAuth(const String& aUser, const String& aPassword)
-      { sendBasicAuth(aUser.c_str(), aPassword.c_str()); }
+    {
+      sendBasicAuth(aUser.c_str(), aPassword.c_str());
+    }
 
     /** Get the HTTP status code contained in the response.
       For example, 200 for successful request, 404 for file not found, etc.
@@ -263,8 +271,12 @@ public:
       @return true if we are now at the end of the body, else false
     */
     bool endOfBodyReached();
-    virtual bool endOfStream() { return endOfBodyReached(); };
-    virtual bool completed() { return endOfBodyReached(); };
+    virtual bool endOfStream() {
+      return endOfBodyReached();
+    };
+    virtual bool completed() {
+      return endOfBodyReached();
+    };
 
     /** Return the length of the body.
       Also skips response headers if they have not been read already
@@ -277,7 +289,9 @@ public:
     /** Returns if the response body is chunked
       @return true if response body is chunked, false otherwise
     */
-    int isResponseChunked() { return iIsChunked; }
+    int isResponseChunked() {
+      return iIsChunked;
+    }
 
     /** Return the response body as a String
       Also skips response headers if they have not been read already
@@ -285,6 +299,7 @@ public:
       @return response body of request as a String
     */
     String responseBody();
+    int responseBody(Stream& stream);
 
     /** Enables connection keep-alive mode
     */
@@ -297,27 +312,53 @@ public:
     // Inherited from Print
     // Note: 1st call to these indicates the user is sending the body, so if need
     // Note: be we should finish the header first
-    virtual size_t write(uint8_t aByte) { if (iState < eRequestSent) { finishHeaders(); }; return iClient-> write(aByte); };
-    virtual size_t write(const uint8_t *aBuffer, size_t aSize) { if (iState < eRequestSent) { finishHeaders(); }; return iClient->write(aBuffer, aSize); };
+    virtual size_t write(uint8_t aByte) {
+      if (iState < eRequestSent) {
+        finishHeaders();
+      };
+      return iClient-> write(aByte);
+    };
+    virtual size_t write(const uint8_t* aBuffer, size_t aSize) {
+      if (iState < eRequestSent) {
+        finishHeaders();
+      };
+      return iClient->write(aBuffer, aSize);
+    };
     // Inherited from Stream
     virtual int available();
     /** Read the next byte from the server.
       @return Byte read or -1 if there are no bytes available.
     */
     virtual int read();
-    virtual int read(uint8_t *buf, size_t size);
-    virtual int peek() { return iClient->peek(); };
-    virtual void flush() { iClient->flush(); };
+    virtual int read(uint8_t* buf, size_t size);
+    virtual int peek() {
+      return iClient->peek();
+    };
+    virtual void flush() {
+      iClient->flush();
+    };
 
     // Inherited from Client
-    virtual int connect(IPAddress ip, uint16_t port) { return iClient->connect(ip, port); };
-    virtual int connect(const char *host, uint16_t port) { return iClient->connect(host, port); };
+    virtual int connect(IPAddress ip, uint16_t port) {
+      return iClient->connect(ip, port);
+    };
+    virtual int connect(const char* host, uint16_t port) {
+      return iClient->connect(host, port);
+    };
     virtual void stop();
-    virtual uint8_t connected() { return iClient->connected(); };
-    virtual operator bool() { return bool(iClient); };
-    virtual uint32_t httpResponseTimeout() { return iHttpResponseTimeout; };
-    virtual void setHttpResponseTimeout(uint32_t timeout) { iHttpResponseTimeout = timeout; };
-protected:
+    virtual uint8_t connected() {
+      return iClient->connected();
+    };
+    virtual operator bool() {
+      return bool(iClient);
+    };
+    virtual uint32_t httpResponseTimeout() {
+      return iHttpResponseTimeout;
+    };
+    virtual void setHttpResponseTimeout(uint32_t timeout) {
+      iHttpResponseTimeout = timeout;
+    };
+  protected:
     /** Reset internal state data back to the "just initialised" state
     */
     void resetState();
@@ -328,7 +369,7 @@ protected:
       @return 0 if successful, else error
     */
     int sendInitialHeaders(const char* aURLPath,
-                     const char* aHttpMethod);
+                           const char* aHttpMethod);
 
     /* Let the server know that we've reached the end of the headers
     */
@@ -344,21 +385,21 @@ protected:
     // Number of milliseconds that we'll wait in total without receiving any
     // data before returning HTTP_ERROR_TIMED_OUT (during status code and header
     // processing)
-    static const int kHttpResponseTimeout = 30*1000;
+    static const int kHttpResponseTimeout = 30 * 1000;
     static const char* kContentLengthPrefix;
     static const char* kTransferEncodingChunked;
     typedef enum {
-        eIdle,
-        eRequestStarted,
-        eRequestSent,
-        eReadingStatusCode,
-        eStatusCodeRead,
-        eReadingContentLength,
-        eSkipToEndOfHeader,
-        eLineStartingCRFound,
-        eReadingBody,
-        eReadingChunkLength,
-        eReadingBodyChunk
+      eIdle,
+      eRequestStarted,
+      eRequestSent,
+      eReadingStatusCode,
+      eStatusCodeRead,
+      eReadingContentLength,
+      eSkipToEndOfHeader,
+      eLineStartingCRFound,
+      eReadingBody,
+      eReadingChunkLength,
+      eReadingBodyChunk
     } tHttpState;
     // Client we're using
     Client* iClient;

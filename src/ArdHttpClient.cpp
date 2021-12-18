@@ -149,24 +149,17 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
   Serial.println("Connected");
   #endif
   // Send the HTTP command, i.e. "GET /somepath/ HTTP/1.0"
-  iClient->print(aHttpMethod);
-  iClient->print(" ");
-
-  iClient->print(aURLPath);
-  iClient->println(" HTTP/1.1");
+  iClient->printf("%s %s HTTP/1.1\n", aHttpMethod, aURLPath);
   if (iSendDefaultRequestHeaders)
   {
     // The host header, if required
     if (iServerName)
     {
-      iClient->print("Host: ");
-      iClient->print(iServerName);
-      if (iServerPort != kHttpPort)
-      {
-        iClient->print(":");
-        iClient->print(iServerPort);
+      if (iServerPort != kHttpPort) {
+        iClient->printf("Host: %s:%d\n", iServerName, iServerPort);
+      } else {
+        iClient->printf("Host: %s\n", iServerName);
       }
-      iClient->println();
     }
     // And user-agent string
     sendHeader(HTTP_HEADER_USER_AGENT, kUserAgent);
@@ -191,22 +184,18 @@ void HttpClient::sendHeader(const char* aHeader)
 
 void HttpClient::sendHeader(const char* aHeaderName, const char* aHeaderValue)
 {
-  iClient->print(aHeaderName);
-  iClient->print(": ");
-  iClient->println(aHeaderValue);
+  iClient->printf("%s:%s\n", aHeaderName, aHeaderValue);
 }
 
 void HttpClient::sendHeader(const char* aHeaderName, const int aHeaderValue)
 {
-  iClient->print(aHeaderName);
-  iClient->print(": ");
-  iClient->println(aHeaderValue);
+  iClient->printf("%s:%s\n", aHeaderName, aHeaderValue);
 }
 
 void HttpClient::sendBasicAuth(const char* aUser, const char* aPassword)
 {
   // Send the initial part of this header line
-  iClient->print("Authorization: Basic ");
+  std::string authHeader = "Authorization: Basic ";
   // Now Base64 encode "aUser:aPassword" and send that
   // This seems trickier than it should be but it's mostly to avoid either
   // (a) some arbitrarily sized buffer which hopes to be big enough, or
@@ -242,14 +231,14 @@ void HttpClient::sendBasicAuth(const char* aUser, const char* aPassword)
       // NUL-terminate the output string
       output[4] = '\0';
       // And write it out
-      iClient->print((char*)output);
+      authHeader += std::string((char*)output);
 // FIXME We might want to fill output with '=' characters if b64_encode doesn't
 // FIXME do it for us when we're encoding the final chunk
       inputOffset = 0;
     }
   }
   // And end the header we've sent
-  iClient->println();
+  iClient->println(authHeader.c_str());
 }
 
 void HttpClient::finishHeaders()
@@ -473,6 +462,7 @@ int HttpClient::responseStatusCode()
       {
         // We haven't got any data, so let's pause to allow some to
         // arrive
+        log_d("Waiting for data");
         delay(kHttpWaitForDataDelay);
       }
     }

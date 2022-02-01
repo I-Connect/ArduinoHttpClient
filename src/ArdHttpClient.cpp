@@ -189,7 +189,7 @@ void HttpClient::sendHeader(const char* aHeaderName, const char* aHeaderValue)
 
 void HttpClient::sendHeader(const char* aHeaderName, const int aHeaderValue)
 {
-  iClient->printf("%s:%s\n", aHeaderName, aHeaderValue);
+  iClient->printf("%s:%d\n", aHeaderName, aHeaderValue);
 }
 
 void HttpClient::sendBasicAuth(const char* aUser, const char* aPassword)

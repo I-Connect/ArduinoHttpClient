@@ -4,6 +4,7 @@
 
 #include "ArdHttpClient.h"
 #include "b64.h"
+#include <string>
 
 // Initialize constants
 const char* HttpClient::kUserAgent = "Arduino/2.2.0";

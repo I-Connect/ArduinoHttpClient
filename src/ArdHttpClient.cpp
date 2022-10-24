@@ -6,8 +6,10 @@
 #include "b64.h"
 #include <string>
 
+#define LOGGING
+
 // Initialize constants
-const char* HttpClient::kUserAgent = "Arduino/2.2.0";
+const char* HttpClient::kUserAgent = "PostmanRuntime/7.29.2"; //"Arduino/2.2.0";
 const char* HttpClient::kContentLengthPrefix = HTTP_HEADER_CONTENT_LENGTH ": ";
 const char* HttpClient::kTransferEncodingChunked = HTTP_HEADER_TRANSFER_ENCODING ": " HTTP_HEADER_VALUE_CHUNKED;
 
@@ -75,7 +77,6 @@ int HttpClient::startRequest(const char* aURLPath, const char* aHttpMethod,
   }
 
   tHttpState initialState = iState;
-
   if ((eIdle != iState) && (eRequestStarted != iState))
   {
     return HTTP_ERROR_API;
@@ -150,20 +151,29 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
   Serial.println("Connected");
   #endif
   // Send the HTTP command, i.e. "GET /somepath/ HTTP/1.0"
-  iClient->printf("%s %s HTTP/1.1\n", aHttpMethod, aURLPath);
+  char c[100];
+  sprintf(c, "%s %s HTTP/1.1", aHttpMethod, aURLPath);
+
+  #ifdef LOGGING
+  Serial.println(c);
+  #endif
+  iClient->println(c);
   if (iSendDefaultRequestHeaders)
   {
     // The host header, if required
     if (iServerName)
     {
       if (iServerPort != kHttpPort) {
-        iClient->printf("Host: %s:%d\n", iServerName, iServerPort);
+        char b[50];
+        sprintf(b, "%s:%d", iServerName, iServerPort);
+        sendHeader("Host", b);
       } else {
-        iClient->printf("Host: %s\n", iServerName);
+        sendHeader("Host", iServerName);
       }
     }
     // And user-agent string
     sendHeader(HTTP_HEADER_USER_AGENT, kUserAgent);
+    sendHeader("Accept", "*/*");
   }
 
   if (iConnectionClose)
@@ -171,6 +181,12 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
     // Tell the server to
     // close this connection after we're done
     sendHeader(HTTP_HEADER_CONNECTION, "close");
+  }
+  else
+  {
+    // Tell the server to
+    // keep open this connection after we're done
+    sendHeader(HTTP_HEADER_CONNECTION, "keep-alive");
   }
 
   // Everything has gone well
@@ -180,17 +196,30 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
 
 void HttpClient::sendHeader(const char* aHeader)
 {
+  #ifdef LOGGING
+  Serial.println(aHeader);
+  #endif
   iClient->println(aHeader);
 }
 
 void HttpClient::sendHeader(const char* aHeaderName, const char* aHeaderValue)
 {
-  iClient->printf("%s:%s\n", aHeaderName, aHeaderValue);
+  char b[100];
+  sprintf(b, "%s: %s", aHeaderName, aHeaderValue);
+  #ifdef LOGGING
+  Serial.println(b);
+  #endif
+  iClient->println(b);
 }
 
 void HttpClient::sendHeader(const char* aHeaderName, const int aHeaderValue)
 {
-  iClient->printf("%s:%d\n", aHeaderName, aHeaderValue);
+  char b[100];
+  sprintf(b, "%s:%d", aHeaderName, aHeaderValue);
+  #ifdef LOGGING
+  Serial.println(b);
+  #endif
+  iClient->println(b);
 }
 
 void HttpClient::sendBasicAuth(const char* aUser, const char* aPassword)
@@ -225,7 +254,7 @@ void HttpClient::sendBasicAuth(const char* aUser, const char* aPassword)
       input[inputOffset++] = aPassword[i - (userLen + 1)];
     }
     // See if we've got a chunk to encode
-    if ( (inputOffset == 3) || (i == userLen + passwordLen) )
+    if ((inputOffset == 3) || (i == userLen + passwordLen))
     {
       // We've either got to a 3-byte boundary, or we've reached then end
       b64_encode(input, inputOffset, output, 4);
@@ -244,6 +273,9 @@ void HttpClient::sendBasicAuth(const char* aUser, const char* aPassword)
 
 void HttpClient::finishHeaders()
 {
+  #ifdef LOGGING
+  Serial.println();
+  #endif
   iClient->println();
   iState = eRequestSent;
 }
@@ -318,7 +350,7 @@ int HttpClient::put(const String& aURLPath)
 
 int HttpClient::put(const char* aURLPath, const char* aContentType, const char* aBody)
 {
-  return put(aURLPath, aContentType, strlen(aBody),  (const byte*)aBody);
+  return put(aURLPath, aContentType, strlen(aBody), (const byte*)aBody);
 }
 
 int HttpClient::put(const String& aURLPath, const String& aContentType, const String& aBody)
@@ -343,7 +375,7 @@ int HttpClient::patch(const String& aURLPath)
 
 int HttpClient::patch(const char* aURLPath, const char* aContentType, const char* aBody)
 {
-  return patch(aURLPath, aContentType, strlen(aBody),  (const byte*)aBody);
+  return patch(aURLPath, aContentType, strlen(aBody), (const byte*)aBody);
 }
 
 int HttpClient::patch(const String& aURLPath, const String& aContentType, const String& aBody)
@@ -368,7 +400,7 @@ int HttpClient::del(const String& aURLPath)
 
 int HttpClient::del(const char* aURLPath, const char* aContentType, const char* aBody)
 {
-  return del(aURLPath, aContentType, strlen(aBody),  (const byte*)aBody);
+  return del(aURLPath, aContentType, strlen(aBody), (const byte*)aBody);
 }
 
 int HttpClient::del(const String& aURLPath, const String& aContentType, const String& aBody)
@@ -407,18 +439,19 @@ int HttpClient::responseStatusCode()
     const char* statusPtr = statusPrefix;
     // Whilst we haven't timed out & haven't reached the end of the headers
     while ((c != '\n') &&
-           ( (millis() - timeoutStart) < iHttpResponseTimeout ))
+           ((millis() - timeoutStart) < iHttpResponseTimeout))
     {
       if (available())
       {
         c = read();
+        Serial.print((char)c);
         if (c != -1)
         {
           switch (iState)
           {
             case eRequestSent:
               // We haven't reached the status code yet
-              if ( (*statusPtr == '*') || (*statusPtr == c) )
+              if ((*statusPtr == '*') || (*statusPtr == c))
               {
                 // This character matches, just move along
                 statusPtr++;
@@ -467,7 +500,7 @@ int HttpClient::responseStatusCode()
         delay(kHttpWaitForDataDelay);
       }
     }
-    if ( (c == '\n') && (iStatusCode < 200 && iStatusCode != 101) )
+    if ((c == '\n') && (iStatusCode < 200 && iStatusCode != 101))
     {
       // We've reached the end of an informational status line
       c = '\0'; // Clear c so we'll go back into the data reading loop
@@ -475,9 +508,9 @@ int HttpClient::responseStatusCode()
   }
   // If we've read a status code successfully but it's informational (1xx)
   // loop back to the start
-  while ( (iState == eStatusCodeRead) && (iStatusCode < 200 && iStatusCode != 101) );
+  while ((iState == eStatusCodeRead) && (iStatusCode < 200 && iStatusCode != 101));
 
-  if ( (c == '\n') && (iState == eStatusCodeRead) )
+  if ((c == '\n') && (iState == eStatusCodeRead))
   {
     // We've read the status-line successfully
     return iStatusCode;
@@ -501,7 +534,7 @@ int HttpClient::skipResponseHeaders()
   unsigned long timeoutStart = millis();
   // Whilst we haven't timed out & haven't reached the end of the headers
   while ((!endOfHeadersReached()) &&
-         ( (millis() - timeoutStart) < iHttpResponseTimeout ))
+         ((millis() - timeoutStart) < iHttpResponseTimeout))
   {
     if (available())
     {
@@ -875,7 +908,7 @@ int HttpClient::readHeader()
       break;
   };
 
-  if ( (c == '\n') && !endOfHeadersReached() )
+  if ((c == '\n') && !endOfHeadersReached())
   {
     // We've got to the end of this line, start processing again
     iState = eStatusCodeRead;

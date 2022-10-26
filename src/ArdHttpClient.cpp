@@ -6,10 +6,10 @@
 #include "b64.h"
 #include <string>
 
-#define LOGGING
+// #define LOGGING
 
 // Initialize constants
-const char* HttpClient::kUserAgent = "PostmanRuntime/7.29.2"; //"Arduino/2.2.0";
+const char* HttpClient::kUserAgent = "Arduino/2.2.0";
 const char* HttpClient::kContentLengthPrefix = HTTP_HEADER_CONTENT_LENGTH ": ";
 const char* HttpClient::kTransferEncodingChunked = HTTP_HEADER_TRANSFER_ENCODING ": " HTTP_HEADER_VALUE_CHUNKED;
 
@@ -138,6 +138,9 @@ int HttpClient::startRequest(const char* aURLPath, const char* aHttpMethod,
 
     if (hasBody)
     {
+      #ifdef LOGGING
+      Serial.println((char*)aBody);
+      #endif
       write(aBody, aContentLength);
     }
   }
@@ -147,9 +150,6 @@ int HttpClient::startRequest(const char* aURLPath, const char* aHttpMethod,
 
 int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod)
 {
-  #ifdef LOGGING
-  Serial.println("Connected");
-  #endif
   // Send the HTTP command, i.e. "GET /somepath/ HTTP/1.0"
   char c[100];
   sprintf(c, "%s %s HTTP/1.1", aHttpMethod, aURLPath);
@@ -215,7 +215,7 @@ void HttpClient::sendHeader(const char* aHeaderName, const char* aHeaderValue)
 void HttpClient::sendHeader(const char* aHeaderName, const int aHeaderValue)
 {
   char b[100];
-  sprintf(b, "%s:%d", aHeaderName, aHeaderValue);
+  sprintf(b, "%s: %d", aHeaderName, aHeaderValue);
   #ifdef LOGGING
   Serial.println(b);
   #endif
@@ -444,7 +444,6 @@ int HttpClient::responseStatusCode()
       if (available())
       {
         c = read();
-        Serial.print((char)c);
         if (c != -1)
         {
           switch (iState)
@@ -496,7 +495,9 @@ int HttpClient::responseStatusCode()
       {
         // We haven't got any data, so let's pause to allow some to
         // arrive
+        #ifdef LOGGING
         log_d("Waiting for data");
+        #endif
         delay(kHttpWaitForDataDelay);
       }
     }

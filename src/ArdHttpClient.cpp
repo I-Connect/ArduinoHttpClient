@@ -493,6 +493,11 @@ int HttpClient::responseStatusCode()
       }
       else
       {
+        if (!iClient->connected()) {
+          // Server closed connection without any response
+          log_e("Connection closed, empty reply");
+          return HTTP_ERROR_INVALID_RESPONSE;
+        }
         // We haven't got any data, so let's pause to allow some to
         // arrive
         #ifdef LOGGING

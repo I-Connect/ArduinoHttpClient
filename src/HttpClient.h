@@ -40,9 +40,10 @@ static const int HTTP_ERROR_INVALID_RESPONSE = -4;
 
 class HttpClient : public Client
 {
-  public:
-    static const int kNoContentLengthHeader = -1;
-    static const int kHttpPort = 80;
+public:
+    static const int kNoContentLengthHeader =-1;
+    static const int kHttpPort =80;
+    static const int kHttpsPort =443;
     static const char* kUserAgent;
 
 // FIXME Write longer API request, using port and user-agent, example
@@ -284,7 +285,7 @@ class HttpClient : public Client
       @return Length of the body, in bytes, or kNoContentLengthHeader if no
       Content-Length header was returned by the server
     */
-    int contentLength();
+    long contentLength();
 
     /** Returns if the response body is chunked
       @return true if response body is chunked, false otherwise
@@ -346,19 +347,13 @@ class HttpClient : public Client
       return iClient->connect(host, port);
     };
     virtual void stop();
-    virtual uint8_t connected() {
-      return iClient->connected();
-    };
-    virtual operator bool() {
-      return bool(iClient);
-    };
-    virtual uint32_t httpResponseTimeout() {
-      return iHttpResponseTimeout;
-    };
-    virtual void setHttpResponseTimeout(uint32_t timeout) {
-      iHttpResponseTimeout = timeout;
-    };
-  protected:
+    virtual uint8_t connected() { return iClient->connected(); };
+    virtual operator bool() { return bool(iClient); };
+    virtual uint32_t httpResponseTimeout() { return iHttpResponseTimeout; };
+    virtual void setHttpResponseTimeout(uint32_t timeout) { iHttpResponseTimeout = timeout; };
+    virtual uint32_t httpWaitForDataDelay() { return iHttpWaitForDataDelay; };
+    virtual void setHttpWaitForDataDelay(uint32_t delay) { iHttpWaitForDataDelay = delay; };
+protected:
     /** Reset internal state data back to the "just initialised" state
     */
     void resetState();
@@ -381,7 +376,7 @@ class HttpClient : public Client
 
     // Number of milliseconds that we wait each time there isn't any data
     // available to be read (during status code and header processing)
-    static const int kHttpWaitForDataDelay = 1000;
+    static const int kHttpWaitForDataDelay = 100;
     // Number of milliseconds that we'll wait in total without receiving any
     // data before returning HTTP_ERROR_TIMED_OUT (during status code and header
     // processing)
@@ -413,7 +408,7 @@ class HttpClient : public Client
     // Stores the status code for the response, once known
     int iStatusCode;
     // Stores the value of the Content-Length header, if present
-    int iContentLength;
+    long iContentLength;
     // How many bytes of the response body have been read by the user
     int iBodyLengthConsumed;
     // How far through a Content-Length header prefix we are
@@ -425,6 +420,7 @@ class HttpClient : public Client
     // Stores the value of the current chunk length, if present
     int iChunkLength;
     uint32_t iHttpResponseTimeout;
+    uint32_t iHttpWaitForDataDelay;
     bool iConnectionClose;
     bool iSendDefaultRequestHeaders;
     String iHeaderLine;

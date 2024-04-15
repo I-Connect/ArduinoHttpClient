@@ -152,7 +152,7 @@ int HttpClient::startRequest(const char* aURLPath, const char* aHttpMethod,
 int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod)
 {
   // Send the HTTP command, i.e. "GET /somepath/ HTTP/1.0"
-  char c[100];
+  char c[11 + strlen(aHttpMethod) + strlen(aURLPath)];
   sprintf(c, "%s %s HTTP/1.1", aHttpMethod, aURLPath);
 
   #ifdef LOGGING
@@ -164,30 +164,14 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
     // The host header, if required
     if (iServerName)
     {
-      <<< <<< < HEAD
-      if (iServerPort != kHttpPort) {
-        char b[50];
-        sprintf(b, "%s:%d", iServerName, iServerPort);
-        sendHeader("Host", b);
-      } else {
-        sendHeader("Host", iServerName);
-      }
-      == == == =
-        // The host header, if required
-        if (iServerName)
+      iClient->print("Host: ");
+      iClient->print(iServerName);
+      if (iServerPort != kHttpPort && iServerPort != kHttpsPort)
       {
-        iClient->print("Host: ");
-        iClient->print(iServerName);
-        if (iServerPort != kHttpPort && iServerPort != kHttpsPort)
-        {
-          iClient->print(":");
-          iClient->print(iServerPort);
-        }
-        iClient->println();
+        iClient->print(":");
+        iClient->print(iServerPort);
       }
-      // And user-agent string
-      sendHeader(HTTP_HEADER_USER_AGENT, kUserAgent);
-      >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
+      iClient->println();
     }
     // And user-agent string
     sendHeader(HTTP_HEADER_USER_AGENT, kUserAgent);
@@ -457,148 +441,57 @@ int HttpClient::responseStatusCode()
     const char* statusPtr = statusPrefix;
     // Whilst we haven't timed out & haven't reached the end of the headers
     while ((c != '\n') &&
-           ((millis() - timeoutStart) < iHttpResponseTimeout))
+           ( (millis() - timeoutStart) < iHttpResponseTimeout ))
     {
       if (available())
       {
-        c = read();
+        c = HttpClient::read();
         if (c != -1)
         {
-          <<< <<< < HEAD
           switch (iState)
           {
             case eRequestSent:
               // We haven't reached the status code yet
-              if ((*statusPtr == '*') || (*statusPtr == c))
+              if ( (*statusPtr == '*') || (*statusPtr == c) )
               {
                 // This character matches, just move along
                 statusPtr++;
                 if (*statusPtr == '\0')
-                  == == == =
-                    if (available())
-                  {
-                    c = HttpClient::read();
-                    if (c != -1)
-                      >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
-                    {
-                      // We've reached the end of the prefix
-                      iState = eReadingStatusCode;
-                    }
-                    <<< <<< < HEAD
-                  }
-                  else
-                  {
-                    return HTTP_ERROR_INVALID_RESPONSE;
-                  }
-                break;
-              case eReadingStatusCode:
-                if (isdigit(c))
                 {
-                  // This assumes we won't get more than the 3 digits we
-                  // want
-                  iStatusCode = iStatusCode * 10 + (c - '0');
+                  // We've reached the end of the prefix
+                  iState = eReadingStatusCode;
                 }
-                else
-                {
-                  // We've reached the end of the status code
-                  // We could sanity check it here or double-check for ' '
-                  // rather than anything else, but let's be lenient
-                  iState = eStatusCodeRead;
-                }
-                break;
-              case eStatusCodeRead:
-                // We're just waiting for the end of the line now
-                break;
-                == == == =
               }
               else
               {
-                // We haven't got any data, so let's pause to allow some to
-                // arrive
-                delay(iHttpWaitForDataDelay);
+                return HTTP_ERROR_INVALID_RESPONSE;
               }
-          }
-          if ( (c == '\n') && (iStatusCode < 200 && iStatusCode != 101) )
-          {
-            // We've reached the end of an informational status line
-            c = '\0'; // Clear c so we'll go back into the data reading loop
-          }
+              break;
+            case eReadingStatusCode:
+              if (isdigit(c))
+              {
+                // This assumes we won't get more than the 3 digits we
+                // want
+                iStatusCode = iStatusCode * 10 + (c - '0');
+              }
+              else
+              {
+                // We've reached the end of the status code
+                // We could sanity check it here or double-check for ' '
+                // rather than anything else, but let's be lenient
+                iState = eStatusCodeRead;
+              }
+              break;
+            case eStatusCodeRead:
+              // We're just waiting for the end of the line now
+              break;
+
+            default:
+              break;
+          };
+          // We read something, reset the timeout counter
+          timeoutStart = millis();
         }
-        // If we've read a status code successfully but it's informational (1xx)
-        // loop back to the start
-        while ( (iState == eStatusCodeRead) && (iStatusCode < 200 && iStatusCode != 101) );
-        >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
-
-      default:
-        break;
-      };
-      // We read something, reset the timeout counter
-      timeoutStart = millis();
-    }
-  }
-  else
-  {
-    if (!iClient->connected()) {
-      // Server closed connection without any response
-      log_e("Connection closed, empty reply");
-      return HTTP_ERROR_INVALID_RESPONSE;
-    }
-    // We haven't got any data, so let's pause to allow some to
-    // arrive
-    #ifdef LOGGING
-    log_d("Waiting for data");
-    #endif
-    delay(kHttpWaitForDataDelay);
-  }
-}
-if ((c == '\n') && (iStatusCode < 200 && iStatusCode != 101))
-{
-  // We've reached the end of an informational status line
-  c = '\0'; // Clear c so we'll go back into the data reading loop
-}
-}
-// If we've read a status code successfully but it's informational (1xx)
-// loop back to the start
-while ((iState == eStatusCodeRead) && (iStatusCode < 200 && iStatusCode != 101));
-
-if ((c == '\n') && (iState == eStatusCodeRead))
-{
-  // We've read the status-line successfully
-  return iStatusCode;
-}
-else if (c != '\n')
-{
-  // We must've timed out before we reached the end of the line
-  return HTTP_ERROR_TIMED_OUT;
-}
-else
-{
-  // This wasn't a properly formed status line, or at least not one we
-  // could understand
-  return HTTP_ERROR_INVALID_RESPONSE;
-}
-}
-
-int HttpClient::skipResponseHeaders()
-{
-  // Just keep reading until we finish reading the headers or time out
-  unsigned long timeoutStart = millis();
-  // Whilst we haven't timed out & haven't reached the end of the headers
-  while ((!endOfHeadersReached()) &&
-         ((millis() - timeoutStart) < iHttpResponseTimeout))
-  {
-    if (available())
-    {
-      <<< <<< < HEAD
-      (void)readHeader();
-      // We read something, reset the timeout counter
-      timeoutStart = millis();
-      == == == =
-        if (available())
-      {
-        (void)readHeader();
-        // We read something, reset the timeout counter
-        timeoutStart = millis();
       }
       else
       {
@@ -607,17 +500,53 @@ int HttpClient::skipResponseHeaders()
         delay(iHttpWaitForDataDelay);
       }
     }
-    if (endOfHeadersReached())
+    if ( (c == '\n') && (iStatusCode < 200 && iStatusCode != 101) )
     {
-      // Success
-      return HTTP_SUCCESS;
-      >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
+      // We've reached the end of an informational status line
+      c = '\0'; // Clear c so we'll go back into the data reading loop
+    }
+  }
+  // If we've read a status code successfully but it's informational (1xx)
+  // loop back to the start
+  while ( (iState == eStatusCodeRead) && (iStatusCode < 200 && iStatusCode != 101) );
+
+  if ( (c == '\n') && (iState == eStatusCodeRead) )
+  {
+    // We've read the status-line successfully
+    return iStatusCode;
+  }
+  else if (c != '\n')
+  {
+    // We must've timed out before we reached the end of the line
+    return HTTP_ERROR_TIMED_OUT;
+  }
+  else
+  {
+    // This wasn't a properly formed status line, or at least not one we
+    // could understand
+    return HTTP_ERROR_INVALID_RESPONSE;
+  }
+}
+
+int HttpClient::skipResponseHeaders()
+{
+  // Just keep reading until we finish reading the headers or time out
+  unsigned long timeoutStart = millis();
+  // Whilst we haven't timed out & haven't reached the end of the headers
+  while ((!endOfHeadersReached()) &&
+         ( (millis() - timeoutStart) < iHttpResponseTimeout ))
+  {
+    if (available())
+    {
+      (void)readHeader();
+      // We read something, reset the timeout counter
+      timeoutStart = millis();
     }
     else
     {
       // We haven't got any data, so let's pause to allow some to
       // arrive
-      delay(kHttpWaitForDataDelay);
+      delay(iHttpWaitForDataDelay);
     }
   }
   if (endOfHeadersReached())
@@ -894,11 +823,7 @@ int HttpClient::read(uint8_t* buf, size_t size)
 
 int HttpClient::readHeader()
 {
-  <<< <<< < HEAD
-  char c = read();
-  == == == =
   char c = HttpClient::read();
-  >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
 
   if (endOfHeadersReached() || (c == 0xFF))
   {

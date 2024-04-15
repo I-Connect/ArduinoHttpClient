@@ -2,7 +2,7 @@
 // (c) Copyright 2010-2011 MCQN Ltd
 // Released under Apache License, version 2.0
 
-#include "ArdHttpClient.h"
+#include "HttpClient.h"
 #include "b64.h"
 #include <string>
 
@@ -43,6 +43,7 @@ void HttpClient::resetState()
   iIsChunked = false;
   iChunkLength = 0;
   iHttpResponseTimeout = kHttpResponseTimeout;
+  iHttpWaitForDataDelay = kHttpWaitForDataDelay;
 }
 
 void HttpClient::stop()
@@ -163,6 +164,7 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
     // The host header, if required
     if (iServerName)
     {
+      <<< <<< < HEAD
       if (iServerPort != kHttpPort) {
         char b[50];
         sprintf(b, "%s:%d", iServerName, iServerPort);
@@ -170,6 +172,22 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
       } else {
         sendHeader("Host", iServerName);
       }
+      == == == =
+        // The host header, if required
+        if (iServerName)
+      {
+        iClient->print("Host: ");
+        iClient->print(iServerName);
+        if (iServerPort != kHttpPort && iServerPort != kHttpsPort)
+        {
+          iClient->print(":");
+          iClient->print(iServerPort);
+        }
+        iClient->println();
+      }
+      // And user-agent string
+      sendHeader(HTTP_HEADER_USER_AGENT, kUserAgent);
+      >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
     }
     // And user-agent string
     sendHeader(HTTP_HEADER_USER_AGENT, kUserAgent);
@@ -446,6 +464,7 @@ int HttpClient::responseStatusCode()
         c = read();
         if (c != -1)
         {
+          <<< <<< < HEAD
           switch (iState)
           {
             case eRequestSent:
@@ -455,83 +474,109 @@ int HttpClient::responseStatusCode()
                 // This character matches, just move along
                 statusPtr++;
                 if (*statusPtr == '\0')
+                  == == == =
+                    if (available())
+                  {
+                    c = HttpClient::read();
+                    if (c != -1)
+                      >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
+                    {
+                      // We've reached the end of the prefix
+                      iState = eReadingStatusCode;
+                    }
+                    <<< <<< < HEAD
+                  }
+                  else
+                  {
+                    return HTTP_ERROR_INVALID_RESPONSE;
+                  }
+                break;
+              case eReadingStatusCode:
+                if (isdigit(c))
                 {
-                  // We've reached the end of the prefix
-                  iState = eReadingStatusCode;
+                  // This assumes we won't get more than the 3 digits we
+                  // want
+                  iStatusCode = iStatusCode * 10 + (c - '0');
                 }
+                else
+                {
+                  // We've reached the end of the status code
+                  // We could sanity check it here or double-check for ' '
+                  // rather than anything else, but let's be lenient
+                  iState = eStatusCodeRead;
+                }
+                break;
+              case eStatusCodeRead:
+                // We're just waiting for the end of the line now
+                break;
+                == == == =
               }
               else
               {
-                return HTTP_ERROR_INVALID_RESPONSE;
+                // We haven't got any data, so let's pause to allow some to
+                // arrive
+                delay(iHttpWaitForDataDelay);
               }
-              break;
-            case eReadingStatusCode:
-              if (isdigit(c))
-              {
-                // This assumes we won't get more than the 3 digits we
-                // want
-                iStatusCode = iStatusCode * 10 + (c - '0');
-              }
-              else
-              {
-                // We've reached the end of the status code
-                // We could sanity check it here or double-check for ' '
-                // rather than anything else, but let's be lenient
-                iState = eStatusCodeRead;
-              }
-              break;
-            case eStatusCodeRead:
-              // We're just waiting for the end of the line now
-              break;
-
-            default:
-              break;
-          };
-          // We read something, reset the timeout counter
-          timeoutStart = millis();
+          }
+          if ( (c == '\n') && (iStatusCode < 200 && iStatusCode != 101) )
+          {
+            // We've reached the end of an informational status line
+            c = '\0'; // Clear c so we'll go back into the data reading loop
+          }
         }
-      }
-      else
-      {
-        if (!iClient->connected()) {
-          // Server closed connection without any response
-          log_e("Connection closed, empty reply");
-          return HTTP_ERROR_INVALID_RESPONSE;
-        }
-        // We haven't got any data, so let's pause to allow some to
-        // arrive
-        #ifdef LOGGING
-        log_d("Waiting for data");
-        #endif
-        delay(kHttpWaitForDataDelay);
-      }
-    }
-    if ((c == '\n') && (iStatusCode < 200 && iStatusCode != 101))
-    {
-      // We've reached the end of an informational status line
-      c = '\0'; // Clear c so we'll go back into the data reading loop
-    }
-  }
-  // If we've read a status code successfully but it's informational (1xx)
-  // loop back to the start
-  while ((iState == eStatusCodeRead) && (iStatusCode < 200 && iStatusCode != 101));
+        // If we've read a status code successfully but it's informational (1xx)
+        // loop back to the start
+        while ( (iState == eStatusCodeRead) && (iStatusCode < 200 && iStatusCode != 101) );
+        >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
 
-  if ((c == '\n') && (iState == eStatusCodeRead))
-  {
-    // We've read the status-line successfully
-    return iStatusCode;
-  }
-  else if (c != '\n')
-  {
-    // We must've timed out before we reached the end of the line
-    return HTTP_ERROR_TIMED_OUT;
+      default:
+        break;
+      };
+      // We read something, reset the timeout counter
+      timeoutStart = millis();
+    }
   }
   else
   {
-    // This wasn't a properly formed status line, or at least not one we
-    // could understand
-    return HTTP_ERROR_INVALID_RESPONSE;
+    if (!iClient->connected()) {
+      // Server closed connection without any response
+      log_e("Connection closed, empty reply");
+      return HTTP_ERROR_INVALID_RESPONSE;
+    }
+    // We haven't got any data, so let's pause to allow some to
+    // arrive
+    #ifdef LOGGING
+    log_d("Waiting for data");
+    #endif
+    delay(kHttpWaitForDataDelay);
   }
+}
+if ((c == '\n') && (iStatusCode < 200 && iStatusCode != 101))
+{
+  // We've reached the end of an informational status line
+  c = '\0'; // Clear c so we'll go back into the data reading loop
+}
+}
+// If we've read a status code successfully but it's informational (1xx)
+// loop back to the start
+while ((iState == eStatusCodeRead) && (iStatusCode < 200 && iStatusCode != 101));
+
+if ((c == '\n') && (iState == eStatusCodeRead))
+{
+  // We've read the status-line successfully
+  return iStatusCode;
+}
+else if (c != '\n')
+{
+  // We must've timed out before we reached the end of the line
+  return HTTP_ERROR_TIMED_OUT;
+}
+else
+{
+  // This wasn't a properly formed status line, or at least not one we
+  // could understand
+  return HTTP_ERROR_INVALID_RESPONSE;
+}
 }
 
 int HttpClient::skipResponseHeaders()
@@ -544,9 +589,29 @@ int HttpClient::skipResponseHeaders()
   {
     if (available())
     {
+      <<< <<< < HEAD
       (void)readHeader();
       // We read something, reset the timeout counter
       timeoutStart = millis();
+      == == == =
+        if (available())
+      {
+        (void)readHeader();
+        // We read something, reset the timeout counter
+        timeoutStart = millis();
+      }
+      else
+      {
+        // We haven't got any data, so let's pause to allow some to
+        // arrive
+        delay(iHttpWaitForDataDelay);
+      }
+    }
+    if (endOfHeadersReached())
+    {
+      // Success
+      return HTTP_SUCCESS;
+      >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
     }
     else
     {
@@ -572,7 +637,7 @@ bool HttpClient::endOfHeadersReached()
   return (iState == eReadingBody || iState == eReadingChunkLength || iState == eReadingBodyChunk);
 };
 
-int HttpClient::contentLength()
+long HttpClient::contentLength()
 {
   // skip the response headers, if they haven't been read already
   if (!endOfHeadersReached())
@@ -829,7 +894,11 @@ int HttpClient::read(uint8_t* buf, size_t size)
 
 int HttpClient::readHeader()
 {
+  <<< <<< < HEAD
   char c = read();
+  == == == =
+  char c = HttpClient::read();
+  >>> >>> > 6f2659de4c0523f0a5fa4bc1154d1e5dc1b01546
 
   if (endOfHeadersReached() || (c == 0xFF))
   {

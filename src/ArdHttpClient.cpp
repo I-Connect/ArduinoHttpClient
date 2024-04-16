@@ -4,9 +4,6 @@
 
 #include "ArdHttpClient.h"
 #include "b64.h"
-#include <string>
-
-// #define LOGGING
 
 // Initialize constants
 const char* HttpClient::kUserAgent = "Arduino/2.2.0";
@@ -78,6 +75,7 @@ int HttpClient::startRequest(const char* aURLPath, const char* aHttpMethod,
   }
 
   tHttpState initialState = iState;
+
   if ((eIdle != iState) && (eRequestStarted != iState))
   {
     return HTTP_ERROR_API;
@@ -139,9 +137,6 @@ int HttpClient::startRequest(const char* aURLPath, const char* aHttpMethod,
 
     if (hasBody)
     {
-      #ifdef LOGGING
-      Serial.println((char*)aBody);
-      #endif
       write(aBody, aContentLength);
     }
   }
@@ -151,14 +146,15 @@ int HttpClient::startRequest(const char* aURLPath, const char* aHttpMethod,
 
 int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod)
 {
-  // Send the HTTP command, i.e. "GET /somepath/ HTTP/1.0"
-  char c[11 + strlen(aHttpMethod) + strlen(aURLPath)];
-  sprintf(c, "%s %s HTTP/1.1", aHttpMethod, aURLPath);
-
   #ifdef LOGGING
-  Serial.println(c);
+  Serial.println("Connected");
   #endif
-  iClient->println(c);
+  // Send the HTTP command, i.e. "GET /somepath/ HTTP/1.0"
+  iClient->print(aHttpMethod);
+  iClient->print(" ");
+
+  iClient->print(aURLPath);
+  iClient->println(" HTTP/1.1");
   if (iSendDefaultRequestHeaders)
   {
     // The host header, if required
@@ -175,7 +171,6 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
     }
     // And user-agent string
     sendHeader(HTTP_HEADER_USER_AGENT, kUserAgent);
-    sendHeader("Accept", "*/*");
   }
 
   if (iConnectionClose)
@@ -183,12 +178,6 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
     // Tell the server to
     // close this connection after we're done
     sendHeader(HTTP_HEADER_CONNECTION, "close");
-  }
-  else
-  {
-    // Tell the server to
-    // keep open this connection after we're done
-    sendHeader(HTTP_HEADER_CONNECTION, "keep-alive");
   }
 
   // Everything has gone well
@@ -198,36 +187,27 @@ int HttpClient::sendInitialHeaders(const char* aURLPath, const char* aHttpMethod
 
 void HttpClient::sendHeader(const char* aHeader)
 {
-  #ifdef LOGGING
-  Serial.println(aHeader);
-  #endif
   iClient->println(aHeader);
 }
 
 void HttpClient::sendHeader(const char* aHeaderName, const char* aHeaderValue)
 {
-  char b[100];
-  sprintf(b, "%s: %s", aHeaderName, aHeaderValue);
-  #ifdef LOGGING
-  Serial.println(b);
-  #endif
-  iClient->println(b);
+  iClient->print(aHeaderName);
+  iClient->print(": ");
+  iClient->println(aHeaderValue);
 }
 
 void HttpClient::sendHeader(const char* aHeaderName, const int aHeaderValue)
 {
-  char b[100];
-  sprintf(b, "%s: %d", aHeaderName, aHeaderValue);
-  #ifdef LOGGING
-  Serial.println(b);
-  #endif
-  iClient->println(b);
+  iClient->print(aHeaderName);
+  iClient->print(": ");
+  iClient->println(aHeaderValue);
 }
 
 void HttpClient::sendBasicAuth(const char* aUser, const char* aPassword)
 {
   // Send the initial part of this header line
-  std::string authHeader = "Authorization: Basic ";
+  iClient->print("Authorization: Basic ");
   // Now Base64 encode "aUser:aPassword" and send that
   // This seems trickier than it should be but it's mostly to avoid either
   // (a) some arbitrarily sized buffer which hopes to be big enough, or
@@ -256,28 +236,25 @@ void HttpClient::sendBasicAuth(const char* aUser, const char* aPassword)
       input[inputOffset++] = aPassword[i - (userLen + 1)];
     }
     // See if we've got a chunk to encode
-    if ((inputOffset == 3) || (i == userLen + passwordLen))
+    if ( (inputOffset == 3) || (i == userLen + passwordLen) )
     {
       // We've either got to a 3-byte boundary, or we've reached then end
       b64_encode(input, inputOffset, output, 4);
       // NUL-terminate the output string
       output[4] = '\0';
       // And write it out
-      authHeader += std::string((char*)output);
+      iClient->print((char*)output);
 // FIXME We might want to fill output with '=' characters if b64_encode doesn't
 // FIXME do it for us when we're encoding the final chunk
       inputOffset = 0;
     }
   }
   // And end the header we've sent
-  iClient->println(authHeader.c_str());
+  iClient->println();
 }
 
 void HttpClient::finishHeaders()
 {
-  #ifdef LOGGING
-  Serial.println();
-  #endif
   iClient->println();
   iState = eRequestSent;
 }
@@ -352,7 +329,7 @@ int HttpClient::put(const String& aURLPath)
 
 int HttpClient::put(const char* aURLPath, const char* aContentType, const char* aBody)
 {
-  return put(aURLPath, aContentType, strlen(aBody), (const byte*)aBody);
+  return put(aURLPath, aContentType, strlen(aBody),  (const byte*)aBody);
 }
 
 int HttpClient::put(const String& aURLPath, const String& aContentType, const String& aBody)
@@ -377,7 +354,7 @@ int HttpClient::patch(const String& aURLPath)
 
 int HttpClient::patch(const char* aURLPath, const char* aContentType, const char* aBody)
 {
-  return patch(aURLPath, aContentType, strlen(aBody), (const byte*)aBody);
+  return patch(aURLPath, aContentType, strlen(aBody),  (const byte*)aBody);
 }
 
 int HttpClient::patch(const String& aURLPath, const String& aContentType, const String& aBody)
@@ -402,7 +379,7 @@ int HttpClient::del(const String& aURLPath)
 
 int HttpClient::del(const char* aURLPath, const char* aContentType, const char* aBody)
 {
-  return del(aURLPath, aContentType, strlen(aBody), (const byte*)aBody);
+  return del(aURLPath, aContentType, strlen(aBody),  (const byte*)aBody);
 }
 
 int HttpClient::del(const String& aURLPath, const String& aContentType, const String& aBody)
@@ -618,40 +595,6 @@ String HttpClient::responseBody()
   return response;
 }
 
-
-int HttpClient::responseBody(Stream& stream)
-{
-  long bodyLength = contentLength();
-  int writtenLength = 0;
-
-  // keep on timedRead'ing, until:
-  //  - we have a content length: body length equals consumed or no bytes
-  //                              available
-  //  - no content length:        no bytes are available
-  while (iBodyLengthConsumed != bodyLength)
-  {
-    int c = timedRead();
-
-    if (c == -1) {
-      // read timed out, done
-      break;
-    }
-
-    if (!stream.write((char)c)) {
-      // adding char failed
-      return 0;
-    }
-    writtenLength++;
-  }
-
-  if (bodyLength > 0 && (unsigned long)bodyLength != writtenLength) {
-    // failure, we did not read in response content length bytes
-    return 0;
-  }
-
-  return writtenLength;
-}
-
 bool HttpClient::endOfBodyReached()
 {
   if (endOfHeadersReached() && (contentLength() != kNoContentLengthHeader))
@@ -750,9 +693,6 @@ bool HttpClient::headerAvailable()
   {
     // read a byte from the header
     int c = readHeader();
-    if (c == 255) {
-      continue;
-    }
 
     if (c == '\r' || c == '\n')
     {
@@ -825,7 +765,7 @@ int HttpClient::readHeader()
 {
   char c = HttpClient::read();
 
-  if (endOfHeadersReached() || (c == 0xFF))
+  if (endOfHeadersReached())
   {
     // We've passed the headers, but rather than return an error, we'll just
     // act as a slightly less efficient version of read()
@@ -908,7 +848,7 @@ int HttpClient::readHeader()
       break;
   };
 
-  if ((c == '\n') && !endOfHeadersReached())
+  if ( (c == '\n') && !endOfHeadersReached() )
   {
     // We've got to the end of this line, start processing again
     iState = eStatusCodeRead;
@@ -918,6 +858,5 @@ int HttpClient::readHeader()
   // And return the character read to whoever wants it
   return c;
 }
-
 
 

@@ -40,10 +40,10 @@ static const int HTTP_ERROR_INVALID_RESPONSE = -4;
 
 class HttpClient : public Client
 {
-public:
-    static const int kNoContentLengthHeader =-1;
-    static const int kHttpPort =80;
-    static const int kHttpsPort =443;
+  public:
+    static const int kNoContentLengthHeader = -1;
+    static const int kHttpPort = 80;
+    static const int kHttpsPort = 443;
     static const char* kUserAgent;
 
 // FIXME Write longer API request, using port and user-agent, example
@@ -300,7 +300,6 @@ public:
       @return response body of request as a String
     */
     String responseBody();
-    int responseBody(Stream& stream);
 
     /** Enables connection keep-alive mode
     */
@@ -347,13 +346,25 @@ public:
       return iClient->connect(host, port);
     };
     virtual void stop();
-    virtual uint8_t connected() { return iClient->connected(); };
-    virtual operator bool() { return bool(iClient); };
-    virtual uint32_t httpResponseTimeout() { return iHttpResponseTimeout; };
-    virtual void setHttpResponseTimeout(uint32_t timeout) { iHttpResponseTimeout = timeout; };
-    virtual uint32_t httpWaitForDataDelay() { return iHttpWaitForDataDelay; };
-    virtual void setHttpWaitForDataDelay(uint32_t delay) { iHttpWaitForDataDelay = delay; };
-protected:
+    virtual uint8_t connected() {
+      return iClient->connected();
+    };
+    virtual operator bool() {
+      return bool(iClient);
+    };
+    virtual uint32_t httpResponseTimeout() {
+      return iHttpResponseTimeout;
+    };
+    virtual void setHttpResponseTimeout(uint32_t timeout) {
+      iHttpResponseTimeout = timeout;
+    };
+    virtual uint32_t httpWaitForDataDelay() {
+      return iHttpWaitForDataDelay;
+    };
+    virtual void setHttpWaitForDataDelay(uint32_t delay) {
+      iHttpWaitForDataDelay = delay;
+    };
+  protected:
     /** Reset internal state data back to the "just initialised" state
     */
     void resetState();

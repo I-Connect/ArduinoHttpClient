@@ -300,6 +300,7 @@ class HttpClient : public Client
       @return response body of request as a String
     */
     String responseBody();
+    int responseBody(Stream& stream);
 
     /** Enables connection keep-alive mode
     */

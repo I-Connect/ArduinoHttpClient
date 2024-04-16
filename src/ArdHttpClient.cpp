@@ -472,6 +472,11 @@ int HttpClient::responseStatusCode()
       }
       else
       {
+        if (!iClient->connected()) {
+          // Server closed connection without any response
+          log_e("Connection closed, empty reply");
+          return HTTP_ERROR_INVALID_RESPONSE;
+        }
         // We haven't got any data, so let's pause to allow some to
         // arrive
         delay(iHttpWaitForDataDelay);
@@ -595,6 +600,39 @@ String HttpClient::responseBody()
   return response;
 }
 
+int HttpClient::responseBody(Stream& stream)
+{
+  long bodyLength = contentLength();
+  int writtenLength = 0;
+
+  // keep on timedRead'ing, until:
+  //  - we have a content length: body length equals consumed or no bytes
+  //                              available
+  //  - no content length:        no bytes are available
+  while (iBodyLengthConsumed != bodyLength)
+  {
+    int c = timedRead();
+
+    if (c == -1) {
+      // read timed out, done
+      break;
+    }
+
+    if (!stream.write((char)c)) {
+      // adding char failed
+      return 0;
+    }
+    writtenLength++;
+  }
+
+  if (bodyLength > 0 && (unsigned long)bodyLength != writtenLength) {
+    // failure, we did not read in response content length bytes
+    return 0;
+  }
+
+  return writtenLength;
+}
+
 bool HttpClient::endOfBodyReached()
 {
   if (endOfHeadersReached() && (contentLength() != kNoContentLengthHeader))
@@ -693,6 +731,9 @@ bool HttpClient::headerAvailable()
   {
     // read a byte from the header
     int c = readHeader();
+    if (c == 255) {
+      continue;
+    }
 
     if (c == '\r' || c == '\n')
     {
@@ -765,7 +806,7 @@ int HttpClient::readHeader()
 {
   char c = HttpClient::read();
 
-  if (endOfHeadersReached())
+  if (endOfHeadersReached() || (c == 0xFF))
   {
     // We've passed the headers, but rather than return an error, we'll just
     // act as a slightly less efficient version of read()

@@ -594,7 +594,7 @@ String HttpClient::responseBody()
 
   if (bodyLength > 0 && (unsigned int)bodyLength != response.length()) {
     // failure, we did not read in response content length bytes
-    return String((const char*)NULL);
+    return String((const char*)NULL); 
   }
 
   return response;

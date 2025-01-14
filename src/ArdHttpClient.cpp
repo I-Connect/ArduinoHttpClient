@@ -623,6 +623,7 @@ int HttpClient::responseBody(Stream& stream)
       return 0;
     }
     writtenLength++;
+    delay(1);
   }
 
   if (bodyLength > 0 && (unsigned long)bodyLength != writtenLength) {

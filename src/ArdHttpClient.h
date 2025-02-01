@@ -388,7 +388,7 @@ class HttpClient : public Client
 
     // Number of milliseconds that we wait each time there isn't any data
     // available to be read (during status code and header processing)
-    static const int kHttpWaitForDataDelay = 100;
+    static const int kHttpWaitForDataDelay = 30;
     // Number of milliseconds that we'll wait in total without receiving any
     // data before returning HTTP_ERROR_TIMED_OUT (during status code and header
     // processing)

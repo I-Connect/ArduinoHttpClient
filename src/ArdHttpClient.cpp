@@ -4,6 +4,7 @@
 
 #include "ArdHttpClient.h"
 #include "b64.h"
+#include <vector>
 
 // Initialize constants
 const char* HttpClient::kUserAgent = "Arduino/2.2.0";
@@ -606,24 +607,27 @@ int HttpClient::responseBody(Stream& stream)
   int writtenLength = 0;
   size_t timestamp = millis();
 
+// allocate buffer on the heap, note that it will be freed automatically when the function returns
+  std::vector<uint8_t> readBuf(1024);
+
   // keep on timedRead'ing, until:
   //  - we have a content length: body length equals consumed or no bytes
   //                              available
   //  - no content length:        no bytes are available
-  while (iBodyLengthConsumed != bodyLength)
-  {
-    int c = timedRead();
+  while ( writtenLength < bodyLength) {
 
-    if (c == -1) {
-      // read timed out, done
+    int maxReadSize = std::min<int>(readBuf.size(), available());
+    int bytesRead = read(readBuf.data(), maxReadSize);
+
+    if (bytesRead == 0) {
       break;
     }
 
-    if (!stream.write((char)c)) {
-      // adding char failed
+    if (stream.write(readBuf.data(), bytesRead) != bytesRead) {
       return 0;
     }
-    writtenLength++;
+
+    writtenLength += bytesRead;
 
     // Avoid watchdogs triggering
     if (millis() - timestamp > 3000) {
@@ -870,7 +874,7 @@ int HttpClient::readHeader()
         long _iContentLength = iContentLength * 10 + (c - '0');
         // Only apply if the value didn't wrap around
         if (_iContentLength > iContentLength) {
-            iContentLength = _iContentLength;
+          iContentLength = _iContentLength;
         }
       }
       else

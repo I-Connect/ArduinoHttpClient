@@ -332,6 +332,15 @@ class HttpClient : public Client
     */
     virtual int read();
     virtual int read(uint8_t* buf, size_t size);
+
+    /** Read bytes from server in buffer,
+     *
+     * this method is used i.e by Updater.writeStream()
+     * */
+    size_t readBytes(uint8_t* buf, size_t size) override {
+      return iClient->read(buf, size);
+    };
+
     virtual int peek() {
       return iClient->peek();
     };

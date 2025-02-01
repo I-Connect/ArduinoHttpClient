@@ -610,6 +610,8 @@ int HttpClient::responseBody(Stream& stream)
 // allocate buffer on the heap, note that it will be freed automatically when the function returns
   std::vector<uint8_t> readBuf(1024);
 
+  int noDataCount = 0;
+
   // keep on timedRead'ing, until:
   //  - we have a content length: body length equals consumed or no bytes
   //                              available
@@ -619,8 +621,16 @@ int HttpClient::responseBody(Stream& stream)
     int maxReadSize = std::min<int>(readBuf.size(), available());
     int bytesRead = read(readBuf.data(), maxReadSize);
 
-    if (bytesRead == 0) {
-      break;
+    if (bytesRead <= 0) {
+      noDataCount++;
+      if (noDataCount > 10) {
+        // no data for 300ms, abort
+        break;
+      }
+      delay(30);
+      continue;
+    } else {
+      noDataCount = 0;
     }
 
     if (stream.write(readBuf.data(), bytesRead) != bytesRead) {

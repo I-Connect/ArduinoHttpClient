@@ -338,7 +338,11 @@ class HttpClient : public Client
      * this method is used i.e by Updater.writeStream()
      * */
     size_t readBytes(uint8_t* buf, size_t size) override {
-      return iClient->read(buf, size);
+      int result = iClient->read(buf, size);
+      if (result < 0) {
+        return 0;
+      }
+      return result;
     };
 
     virtual int peek() {
